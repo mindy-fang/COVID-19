@@ -1,0 +1,316 @@
+---
+title: "COVID-19_tables_and_graphs.Rmd"
+author: "Mindy Fang"
+date: "2020/3/13"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+#### Load the necessary R libraries
+#### If you haven't installed these packages yet, please use the "install.packages" command to install them first
+```{r message=FALSE, warning=FALSE}
+#install.packages("readxl")
+#install.packages("dplyr")
+#install.packages("ggplot2")
+#install.packages("cluster")
+#install.packages("table1")
+#install.packages("ggpubr")
+#install.packages("factoextra")
+#install.packages("ggrepel")
+#install.packages("ggfortify")
+
+
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(cluster)
+library(table1)
+library(ggpubr)
+library(factoextra)
+library(ggrepel)
+library(ggfortify)
+```
+
+#### Import the Tcell data 
+```{r message=FALSE, warning=FALSE}
+# Please change the file directory to where you have saved the "Discharged_Tcell_dat.xlsx"
+Tcell_discharged = read_excel("C:/Users/mindy/Dropbox/Novel Corona Virus/Paper draft/COVID_data/Discharged_Tcell_dat.xlsx")
+
+
+# Please change the file directory to where you have saved the "Death_Tcell_dat.xlsx"
+Tcell_death = read_excel("C:/Users/mindy/Dropbox/Novel Corona Virus/Paper draft/COVID_data/Death_Tcell_dat.xlsx")
+```
+
+#### Calculate the time intervals in days
+```{r message=FALSE, warning=FALSE}
+Tcell_discharged = Tcell_discharged %>% 
+  mutate(Dis2Hosp = as.numeric(difftime(DateofDischarge, DateofHosp,units = "days")),
+         Hosp2Symp = as.numeric(difftime(DateofHosp, DateofSymp, units="days")),
+         Dis2Symp = as.numeric(difftime(DateofDischarge, DateofSymp, units="days"))) %>%
+  mutate(Tcell2Symp = as.numeric(difftime(DateofTest, DateofSymp, units = "days")),
+         Tcell2Hosp = as.numeric(difftime(DateofTest, DateofHosp,units = "days")),
+         Dis2Tcell = as.numeric(difftime(DateofDischarge, DateofTest, units = "days"))) %>%
+  mutate(Disease=ifelse(UnderDisease=="yes",1,0))
+
+
+Tcell_death = Tcell_death %>% 
+  mutate(Death2Hosp = as.numeric(difftime(DateofDeath, DateofHosp,units = "days")),
+         Death2Symp = as.numeric(difftime(DateofDeath, DateofSymp, units="days")),
+         Hosp2Symp = as.numeric(difftime(DateofHosp, DateofSymp, units="days"))) %>%
+  mutate(Tcell2Symp = as.numeric(difftime(DateofTest, DateofSymp,units = "days")), 
+         Tcell2Hosp = as.numeric(difftime(DateofTest, DateofHosp,units = "days")),
+         Death2Tcell = as.numeric(difftime(DateofDeath, DateofTest, units = "days")))
+
+```
+
+
+
+#### Select the first Tcell test result after hospitalization as the baseline
+```{r message=FALSE, warning=FALSE}
+
+Tcell_death_initial = Tcell_death %>%
+  group_by(PTID) %>% filter(DateofTest==min(DateofTest)) %>% mutate(Group="Death") %>%
+  mutate(Sex=ifelse(Gender=="M", 1, 0), Disease=ifelse(UnderDisease=="yes",1,0)) %>%
+  select(PTID, Group, Sex, Age, Disease, Death2Hosp, Death2Symp, Hosp2Symp,
+         Tcell_item1, Tcell_item2, Tcell_item3, Tcell_item4, Tcell_item5, 
+         Tcell_item6, Tcell_item7, Tcell_item8)
+
+Tcell_discharged_initial = Tcell_discharged %>% 
+  group_by(PTID) %>% filter(DateofTest==min(DateofTest)) %>% mutate(Group="Discharged") %>%
+  mutate(Sex=ifelse(Gender=="M", 1, 0), Disease=ifelse(UnderDisease=="yes",1,0))%>%
+  select(PTID, Group, Sex, Age, Disease, Dis2Hosp, Dis2Symp, Hosp2Symp,
+         Tcell_item1, Tcell_item2, Tcell_item3, Tcell_item4, Tcell_item5, 
+         Tcell_item6, Tcell_item7, Tcell_item8)
+
+```
+
+#### Produce Table1
+```{r message=FALSE, warning=FALSE}
+Tcell_discharged_initial$Disease = factor(Tcell_discharged_initial$Disease, 
+                                          levels=c("0","1"), labels=c("No", "Yes"))
+
+label(Tcell_discharged_initial$Disease) = "Underlying Medical Condition"
+
+Tcell_discharged_initial$Gender = factor(Tcell_discharged_initial$Sex, 
+                                         levels=c("0","1"), labels=c("Female", "Male"))
+
+label(Tcell_discharged_initial$Dis2Hosp) = "Duration of Hospitalization"
+units(Tcell_discharged_initial$Dis2Hosp) = "days"
+
+label(Tcell_discharged_initial$Dis2Symp) = "From the First Symptom to Hospital Discharge"
+units(Tcell_discharged_initial$Dis2Symp) = "days"
+
+label(Tcell_discharged_initial$Hosp2Symp) = "From the First Symptom to Hospitalization"
+units(Tcell_discharged_initial$Hosp2Symp) = "days"
+
+table1(data=Tcell_discharged_initial, ~Age + Disease + Dis2Hosp + Hosp2Symp + 
+         Dis2Symp|Gender, topclass = "Rtable1-zebra")
+```
+
+#### Produce Table2
+```{r message=FALSE, warning=FALSE}
+Tcell_death_initial$Disease = factor(Tcell_death_initial$Disease, levels=c("0","1"),
+                                  labels=c("No", "Yes"))
+
+label(Tcell_death_initial$Disease) = "Underlying Medical Condition"
+
+Tcell_death_initial$Gender = factor(Tcell_death_initial$Sex, levels=c("0","1"),
+                                  labels=c("Female", "Male"))
+
+label(Tcell_death_initial$Death2Hosp) = "Duration of Hospitalization"
+units(Tcell_death_initial$Death2Hosp) = "days"
+
+label(Tcell_death_initial$Death2Symp) = "From the First Symptom to Death"
+units(Tcell_death_initial$Death2Symp) = "days"
+
+label(Tcell_death_initial$Hosp2Symp) = "From the First Symptom to Hospitalization"
+units(Tcell_death_initial$Hosp2Symp) = "days"
+
+table1(data=Tcell_death_initial, ~Age + Disease + Death2Hosp + Hosp2Symp + 
+         Death2Symp|Gender, topclass = "Rtable1-zebra")
+```
+
+
+#### Produce Table3
+```{r message=FALSE, warning=FALSE}
+Tcell_discharged_initial$Sex = factor(Tcell_discharged_initial$Sex, levels=c("0","1"),
+                                  labels=c("Female", "Male"))
+
+label(Tcell_discharged_initial$Tcell_item1) = "Total Lymph Cell Percentage"
+units(Tcell_discharged_initial$Tcell_item1) = "%"
+
+label(Tcell_discharged_initial$Tcell_item2) = "Total Lymph Cell Counts"
+units(Tcell_discharged_initial$Tcell_item2) = "cells/ul"
+
+label(Tcell_discharged_initial$Tcell_item3) = "Helper Lymph Cell Percentage"
+units(Tcell_discharged_initial$Tcell_item3) = "%"
+
+label(Tcell_discharged_initial$Tcell_item4) = "Helper Lymph Cell Counts"
+units(Tcell_discharged_initial$Tcell_item4) = "cells/ul"
+
+label(Tcell_discharged_initial$Tcell_item5) = "Suppressor Lymph Cell Percentage"
+units(Tcell_discharged_initial$Tcell_item5) = "%"
+
+label(Tcell_discharged_initial$Tcell_item6) = "Suppressor Lymph Cell Counts"
+units(Tcell_discharged_initial$Tcell_item6) = "cells/ul"
+
+label(Tcell_discharged_initial$Tcell_item7) = "Th/Ts(TH/TS)"
+
+label(Tcell_discharged_initial$Tcell_item8) = "Lymph Cell Counts"
+units(Tcell_discharged_initial$Tcell_item8) = "cells/ul"
+
+table1(data=Tcell_discharged_initial, ~Tcell_item1 + Tcell_item2 + Tcell_item3 + 
+         Tcell_item4 + Tcell_item5 + Tcell_item6 + Tcell_item7 +Tcell_item8|Sex, 
+       topclass = "Rtable1-zebra")
+```
+
+#### Produce Table4
+```{r message=FALSE, warning=FALSE}
+Tcell_death_initial$Sex = factor(Tcell_death_initial$Sex, levels=c("0","1"),
+                                  labels=c("Female", "Male"))
+
+label(Tcell_death_initial$Tcell_item1) = "Total Lymph Cell Percentage"
+units(Tcell_death_initial$Tcell_item1) = "%"
+
+label(Tcell_death_initial$Tcell_item2) = "Total Lymph Cell Counts"
+units(Tcell_death_initial$Tcell_item2) = "cells/ul"
+
+label(Tcell_death_initial$Tcell_item3) = "Helper Lymph Cell Percentage"
+units(Tcell_death_initial$Tcell_item3) = "%"
+
+label(Tcell_death_initial$Tcell_item4) = "Helper Lymph Cell Counts"
+units(Tcell_death_initial$Tcell_item4) = "cells/ul"
+
+label(Tcell_death_initial$Tcell_item5) = "Suppressor Lymph Cell Percentage"
+units(Tcell_death_initial$Tcell_item5) = "%"
+
+label(Tcell_death_initial$Tcell_item6) = "Suppressor Lymph Cell Counts"
+units(Tcell_death_initial$Tcell_item6) = "cells/ul"
+
+label(Tcell_death_initial$Tcell_item7) = "Th/Ts(TH/TS)"
+
+label(Tcell_death_initial$Tcell_item8) = "Lymph Cell counts"
+units(Tcell_death_initial$Tcell_item8) = "cells/ul"
+
+table1(data=Tcell_death_initial, ~Tcell_item1 + Tcell_item2 + Tcell_item3 + 
+         Tcell_item4 + Tcell_item5 + Tcell_item6 + Tcell_item7 + Tcell_item8|Sex, 
+       topclass = "Rtable1-zebra")
+```
+
+#### Combine Data and scale the selected subset of the data into standardized normal distribution Normal(0,1)
+```{r message=FALSE, warning=FALSE}
+Initial_combined = rbind(Tcell_discharged_initial, Tcell_death_initial)
+
+Tcell_4ind = Initial_combined[,c("Tcell_item2", "Tcell_item4","Tcell_item6","Tcell_item7","Group")]
+
+colnames(Tcell_4ind) = c("Total_Lymph_Cell", "Helper_Lymph_Cell", 
+                         "Suppressor_Lymph_Cell", "TH_TS_ratio", "Group")   
+
+Tcell_4ind_scaled = as.data.frame(scale(Tcell_4ind[,-5]))
+
+colnames(Tcell_4ind_scaled) = c("Total_Lymph_Cell", "Helper_Lymph_Cell", 
+                                "Suppressor_Lymph_Cell", "TH_TS_ratio")   
+
+```
+
+#### Produce Figure2
+```{r message=FALSE, warning=FALSE}
+Tcell_discharged_initial %>%
+  select(Age, Disease, Dis2Hosp) %>%
+  ggplot(aes(x=Age, y=Dis2Hosp, color=Disease)) + 
+  geom_point()+ theme_minimal()+ theme(legend.title=element_blank())+ 
+  scale_color_manual(values=c("lightpink", "royalblue"))
+
+Tcell_death_initial %>%
+  select(Age, Disease, Death2Hosp) %>%
+  ggplot(aes(x=Age, y=Death2Hosp, color=Disease)) + 
+  geom_point()+ theme_minimal()+ theme(legend.title=element_blank())+ 
+  scale_color_manual(values=c("lightpink", "royalblue"))
+
+```
+
+#### Produce Figure3
+```{r message=FALSE, warning=FALSE}
+ggboxplot(data=Initial_combined, y="Tcell_item2", x="Group", fill="Group") + 
+  stat_compare_means(method = "t.test") + 
+  geom_boxplot(alpha=0.4,color="lightgrey") + 
+  scale_fill_manual(name="Group", labels=c("Death","Discharged"), 
+                    breaks = c("Death","Discharged"),
+                    values=c("lightcoral", "mediumseagreen")) + 
+  theme_minimal() + xlab("") + ylab("") + theme(legend.position = "none")
+
+
+ggboxplot(data=Initial_combined, y="Tcell_item4", x="Group", fill="Group") + 
+  stat_compare_means(method = "t.test") + 
+  geom_boxplot(alpha=0.4,color="lightgrey") + 
+  scale_fill_manual(name="Group", labels=c("Death","Discharged"), 
+                    breaks = c("Death","Discharged"),
+                    values=c("lightcoral", "mediumseagreen")) + 
+  theme_minimal()+xlab("")+ylab("") + theme(legend.position = "none")
+
+ggboxplot(data=Initial_combined, y="Tcell_item6", x="Group", fill="Group") + 
+  stat_compare_means(method = "t.test") + 
+  geom_boxplot(alpha=0.4,color="lightgrey") + 
+  scale_fill_manual(name="Group", labels=c("Death","Discharged"), 
+                    breaks = c("Death","Discharged"),
+                    values=c("lightcoral", "mediumseagreen")) + 
+  theme_minimal()+xlab("")+ylab("") + theme(legend.position = "none")
+
+ggboxplot(data=Initial_combined, y="Tcell_item7", x="Group", fill="Group") + 
+  stat_compare_means(method = "t.test") + 
+  geom_boxplot(alpha=0.4,color="lightgrey") + 
+  scale_fill_manual(name="Group", labels=c("Death","Discharged"), 
+                    breaks = c("Death","Discharged"),
+                    values=c("lightcoral", "mediumseagreen")) + 
+  theme_minimal()+xlab("")+ylab("") + theme(legend.position = "none")
+
+```
+
+
+#### Produce Figure4
+```{r message=FALSE, warning=FALSE}
+Tcell_4ind %>%
+  ggplot(aes(y=Helper_Lymph_Cell, x=Total_Lymph_Cell, color = factor(Group), label = Group)) + 
+  geom_point()+ theme_minimal()+ theme(legend.title=element_blank())+ 
+  scale_color_manual(values=c("lightcoral", "mediumseagreen"))
+
+Tcell_4ind %>%
+  ggplot(aes(y=Suppressor_Lymph_Cell, x=Total_Lymph_Cell, color = factor(Group), label = Group)) + 
+  geom_point()+ theme_minimal()+ theme(legend.title=element_blank())+ 
+  scale_color_manual(values=c("lightcoral", "mediumseagreen"))
+
+Tcell_4ind %>%
+  ggplot(aes(y=Suppressor_Lymph_Cell, x=Helper_Lymph_Cell, color = factor(Group), label = Group)) + 
+  geom_point()+ theme_minimal()+ theme(legend.title=element_blank())+ 
+  scale_color_manual(values=c("lightcoral", "mediumseagreen"))
+```
+
+#### Produce Figure5 a)
+```{r message=FALSE, warning=FALSE}
+Tcell_pca = clara(Tcell_4ind_scaled, 2)
+
+autoplot(Tcell_pca,loadings=TRUE, loadings.label = TRUE, 
+         loadings.label.colour = "lightblue4", loadings.label.size  = 5, 
+         loadings.colour = "lightblue4") +
+  scale_color_manual(name="", labels=c("",""), breaks = c("1", "2"), 
+                     values=c("peachpuff", "peachpuff")) +
+  theme(legend.text = element_text(size = 16)) + theme_minimal()
+
+```
+
+#### Produce Figure5 b)
+
+```{r message=FALSE, warning=FALSE}
+fviz_cluster(list(data = Tcell_4ind_scaled, 
+                  cluster=as.factor(Initial_combined$Group)), geom="point") + 
+  scale_fill_manual(values=c("lightcoral", "mediumseagreen")) + 
+  theme_minimal()+xlab("")+ylab("")+ggtitle("")+theme(legend.title = element_blank())
+
+```
+
+```{r}
+save(Tcell_4ind,file="C:/Users/mindy/Dropbox/Novel Corona Virus/Paper draft/COVID_data/WebApp.RData")
+```
+
+
