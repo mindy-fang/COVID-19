@@ -10,12 +10,9 @@
 load("/home/ubuntu/COVID/COVID.Rdata")
 
 
-library(tidyverse)
-#Sys.setlocale(category = "LC_ALL", locale = "Chinese")
-library(readxl)
+
 library(ggplot2)
 library(cluster)
-library(table1)
 
 library(ggpubr)
 
@@ -26,7 +23,6 @@ require(ggfortify)
 library(shiny)
 
 load("/home/ubuntu/COVID/COVID.Rdata")
-
 
 
 # Define UI for application that draws a histogram
@@ -46,11 +42,6 @@ ui <- fluidPage(
             
             selectInput("UnderlyingDisease",
                         "Underlying Disease", c("yes"=1, "no"=0)),
-            
-            numericInput("TotalTCell",
-                         "Total T Cell Counts (Allowed range: 20~5000)",780,
-                         min = 20,
-                         max = 5000),
             
             
             numericInput("HelperTCell",
@@ -74,31 +65,16 @@ ui <- fluidPage(
         )
     )
     
-    
-    # Show a plot of the generated distribution
-    
-    
+ 
 )
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
     
-    
     output$distPlot <- renderPlot({
-        # generate bins based on input$bins from ui.R
-#        if(input$Age > 100) input$Age = 100
-#        if(input$Age < 1) input$Age =1
-#        if(input$TotalTcell > 5000) input$TotalTcell = 5000
-#        if(input$TotalTcell < 20) input$TotalTcell = 20
-#        if(input$HelperTcell > 2500) input$HelperTcell = 2500
-#        if(input$HelperTcell < 10) input$HelperTcell = 10
-#        if(input$SuppressorTcell > 1500) input$SuppressorTcell = 1500
-#        if(input$SuppressorTcell < 10) input$SuppressorTcell = 10
-#        if(input$TH_TS > 10) input$TH_TS = 10
-#        if(input$TH_TS < 0.1) input$TH_TS = 0.1
-        
-        df=as.data.frame(scale(rbind(df1[,1:6],
-                                     c(input$Age, as.numeric(input$UnderlyingDisease), input$TotalTCell, input$HelperTCell, input$SuppressorTCell, input$TH_TS))))
+        TH_TS = input$HelperTCell/input$SuppressorTCell
+        df=as.data.frame(scale(rbind(df1[,c(1:2,3:5)],
+                                     c(input$Age, as.numeric(input$UnderlyingDisease), input$HelperTCell, input$SuppressorTCell, TH_TS))))
         
         group = c(df1$Outcome, "New Patient")
         
