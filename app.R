@@ -22,8 +22,6 @@ require(ggrepel)
 require(ggfortify)
 library(shiny)
 
-load("/home/ubuntu/COVID/COVID.Rdata")
-
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -53,11 +51,7 @@ ui <- fluidPage(
                          "Suppressor T Cell Counts (Allowed range: 10~1500)",300,
                          min = 10,
                          max = 1500),
-            
-            numericInput("TH_TS",
-                         "TH/TS (Allowed range: 0.1~10)",1.7,
-                         min = 0.1,
-                         max = 10)
+           
         ),
         mainPanel(
             width = 7,
